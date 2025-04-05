@@ -4,11 +4,11 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 import warnings
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
-# For the neural network:
-import tensorflow as tf
-from tensorflow.keras.models import Sequential # type: ignore
-from tensorflow.keras.layers import LSTM, Dense # type: ignore
-from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator # type: ignore
+# For the neural network (not used now)
+# import tensorflow as tf
+# from tensorflow.keras.models import Sequential  # type: ignore
+# from tensorflow.keras.layers import LSTM, Dense  # type: ignore
+# from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator  # type: ignore
 
 # Suppress convergence warnings from SARIMAX
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -42,54 +42,17 @@ def preprocess_data(data):
         scale_params = (min_val, max_val)
     return data_filtered, scale_params
 
-def predict_next_year_nn(data, look_back=3, epochs=20):
-    """
-    Predict the next year's value using an LSTM neural network trained on normalized data.
-    Steps:
-    1. Preprocess the data.
-    2. Prepare a time series generator with sequence length 'look_back'.
-    3. Build and train a simple LSTM model.
-    4. Forecast the next normalized value and revert it to the original scale.
-    If insufficient data exists, returns the last observed Quantity.
-    """
-    processed_data, scale_params = preprocess_data(data)
-    if len(processed_data) < look_back + 1:
-        return processed_data['Quantity'].iloc[-1]
-    series = processed_data['Normalized'].values
-    # Prepare the generator.
-    generator = TimeseriesGenerator(series, series, length=look_back, batch_size=1)
-    # Build a simple LSTM model.
-    model = Sequential()
-    model.add(LSTM(50, activation='relu', input_shape=(look_back, 1)))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
-    
-    # Train the model (epochs can be increased for better forecasting).
-    model.fit(generator, epochs=epochs, verbose=0)
-    
-    # Use the last 'look_back' observations to forecast the next value.
-    last_sequence = series[-look_back:]
-    input_seq = last_sequence.reshape((1, look_back, 1))
-    forecast_norm = model.predict(input_seq, verbose=0)[0,0]
-    
-    min_val, max_val = scale_params
-    if (min_val is not None) and (max_val is not None):
-        prediction = forecast_norm * (max_val - min_val) + min_val
-    else:
-        prediction = forecast_norm
-    return prediction
-
-# You can still keep the SARIMAX approach in predict_next_year() if you wish:
 def predict_next_year(data):
     """
     Predict the next year's value using an advanced SARIMAX model on preprocessed data.
-    (Fallback to last value if data is insufficient or model fitting fails.)
+    (Falls back to the last observed Quantity if data is insufficient or model fitting fails.)
     """
     processed_data, scale_params = preprocess_data(data)
     if processed_data.empty or len(processed_data) < 5:
         return processed_data['Quantity'].iloc[-1]
     series = processed_data['Normalized'].values
     try:
+        # Fit a SARIMAX(1,0,1) model
         model = SARIMAX(series, order=(1, 0, 1),
                         enforce_stationarity=False,
                         enforce_invertibility=False)
@@ -104,6 +67,7 @@ def predict_next_year(data):
         prediction = forecast_norm
     return prediction
 
+# Optionally, you may include a grid search to optimize the SARIMAX order:
 def find_best_model(series, orders):
     """
     Tries different SARIMAX orders and returns the fitted model with the lowest AIC.
@@ -128,44 +92,40 @@ def find_best_model(series, orders):
 
 def run_model(data):
     """
-    Runs an optimized SARIMAX model on the preprocessed data and returns a prediction.
-    Uses grid-search over a set of orders to find the best model (by AIC) on the normalized data,
-    then computes the in-sample loss and returns the one-step-ahead forecast.
+    Runs an optimized SARIMAX model on the preprocessed data,
+    computes in-sample loss via grid search, and returns the one-step-ahead forecast.
     """
     if not isinstance(data, pd.DataFrame):
         data = pd.DataFrame(data)
+    # Use the SARIMAX forecast
     prediction = predict_next_year(data)
+    
     processed_data, _ = preprocess_data(data)
     filtered_data = processed_data[processed_data['Quantity'] > 0]
     if len(filtered_data) < 5:
         loss = 0
     else:
         series = filtered_data['Normalized'].values
-        # Define a grid of orders to try.
         orders = [(1, 0, 1), (1, 1, 1), (2, 0, 2), (2, 1, 2)]
         best_model, best_order = find_best_model(series, orders)
         if best_model is not None:
             forecast_norm = best_model.predict(start=0, end=len(series)-1)
             loss = np.mean(np.abs(forecast_norm - series))
-            print(f"Optimized SARIMAX order for regular category: {best_order}")
+            print(f"Optimized SARIMAX order: {best_order}")
         else:
             loss = np.mean(np.abs(series[1:] - series[:-1]))
-    print(f"Optimized advanced (SARIMAX) model loss for regular category: {loss}")
+    print(f"SARIMAX model loss: {loss}")
     return prediction
 
 if __name__ == "__main__":
-    # For standalone testing: load historical data from 01_input_history.csv.
+    # For standalone testing, load historical data from 01_input_history.csv.
     input_history = pd.read_csv('01_input_history.csv')
     
-    # You can choose a neural network prediction:
-    nn_prediction = predict_next_year_nn(input_history, look_back=3, epochs=20)
-    # Or fallback to the SARIMAX forecast:
+    # Get forecast using SARIMAX
     sarimax_prediction = predict_next_year(input_history)
-    
-    print("Neural Network forecast:", nn_prediction)
     print("SARIMAX forecast:", sarimax_prediction)
     
-    # Append one of these predictions to predictions.csv
+    # Optionally write the prediction to file
     with open('predictions.csv', 'a') as f:
-        f.write("Default,Default,Default,{}\n".format(nn_prediction))
+        f.write("Default,Default,Default,{}\n".format(sarimax_prediction))
 
