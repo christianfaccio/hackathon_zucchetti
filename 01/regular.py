@@ -6,9 +6,9 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 # For the neural network:
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
-from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
+from tensorflow.keras.models import Sequential # type: ignore
+from tensorflow.keras.layers import LSTM, Dense # type: ignore
+from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator # type: ignore
 
 # Suppress convergence warnings from SARIMAX
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
