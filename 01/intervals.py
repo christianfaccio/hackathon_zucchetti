@@ -2,6 +2,40 @@ import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import numpy as np
 
+def preprocess_data(data):
+    """
+    Preprocess the input data:
+    - Remove outliers in 'Quantity' using the IQR method.
+    - Normalize the 'Quantity' column using min-max scaling.
+    
+    Returns:
+        processed_data: DataFrame with an extra column 'Normalized'.
+        scale_params: Tuple (min_value, max_value) of the filtered data.
+    """
+    if not isinstance(data, pd.DataFrame):
+        data = pd.DataFrame(data)
+    
+    Q1 = data['Quantity'].quantile(0.25)
+    Q3 = data['Quantity'].quantile(0.75)
+    IQR = Q3 - Q1
+    data_filtered = data[(data['Quantity'] >= Q1 - 1.5 * IQR) &
+                         (data['Quantity'] <= Q3 + 1.5 * IQR)]
+    
+    if data_filtered.empty:
+        return data.copy(), (None, None)
+    
+    data_filtered = data_filtered.copy()
+    min_val = data_filtered['Quantity'].min()
+    max_val = data_filtered['Quantity'].max()
+    if max_val == min_val:
+        data_filtered.loc[:, 'Normalized'] = data_filtered['Quantity']
+        scale_params = (None, None)
+    else:
+        data_filtered.loc[:, 'Normalized'] = (data_filtered['Quantity'] - min_val) / (max_val - min_val)
+        scale_params = (min_val, max_val)
+    
+    return data_filtered, scale_params
+
 def run_model(data):
     # Convert list of dicts to DataFrame and ensure Quantity is a float.
     df = pd.DataFrame(data)
@@ -36,14 +70,29 @@ def run_model(data):
     return loss
 
 def predict_next_year(data):
-    # Example prediction method: add fixed increment (e.g. +50 units) to last observation.
-    if data.empty or 'Quantity' not in data.columns:
+    """
+    Predict the next year's value for the intervals model.
+    For instance, add a constant increment (e.g. 0.2 in normalized scale)
+    to the last normalized observation and revert to the original scale.
+    """
+    processed_data, scale_params = preprocess_data(data)
+    if processed_data.empty:
         return 0
-    last_val = data['Quantity'].iloc[-1]
-    return last_val + 50
+    if len(processed_data) < 2:
+        return processed_data['Quantity'].iloc[-1]
+    
+    series = processed_data['Normalized'].values
+    pred_normalized = series[-1] + 0.2
+    
+    min_val, max_val = scale_params
+    if min_val is not None and max_val is not None:
+        prediction = pred_normalized * (max_val - min_val) + min_val
+    else:
+        prediction = pred_normalized
+    return prediction
 
 if __name__ == "__main__":
     input_history = pd.read_csv('01_input_history.csv')
     prediction = predict_next_year(input_history)
     with open('predictions.csv', 'a') as f:
-        f.write("Default,{}\n".format(prediction))
+        f.write("Default,Default,Default,{}\n".format(prediction))

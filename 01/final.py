@@ -68,14 +68,14 @@ def main():
     overall_loss = []
     for category, loss_list in loss_by_category.items():
         if loss_list:
-            avg_cat = statistics.mean(loss_list)
+            avg_cat = statistics.mean([float(x) for x in loss_list])
             overall_loss.extend(loss_list)
             print(f"Average custom loss for {category} model: {avg_cat}")
         else:
             print(f"No loss results for {category} model.")
     
     if overall_loss:
-        avg_overall = statistics.mean(overall_loss)
+        avg_overall = statistics.mean([float(x) for x in overall_loss])
         print(f"Overall Average custom loss: {avg_overall}")
     else:
         print("No custom loss results available.")
@@ -113,8 +113,8 @@ def main():
             })
     
     # Write predictions.csv with Country, Product, Month and Quantity columns.
-    predictions_df = pd.DataFrame(results)
-    predictions_df.to_csv('01_output_predictions_2179.csv', index=False)
+    #predictions_df = pd.DataFrame(results)
+    #predictions_df.to_csv('01_output_predictions_2179.csv', index=False)
 
 if __name__ == "__main__":
     main()

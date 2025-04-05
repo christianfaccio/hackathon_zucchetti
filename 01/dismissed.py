@@ -1,56 +1,83 @@
 import pandas as pd
-from sklearn.dummy import DummyRegressor
 import numpy as np
 
-def run_model(data):
-    # Convert list of dicts to DataFrame and ensure Quantity is a float.
-    df = pd.DataFrame(data)
-    df['Quantity'] = df['Quantity'].astype(float)
-    if 'Month' in df.columns:
-        df = df.sort_values("Month")
-    df = df.reset_index(drop=True)
+def preprocess_data(data):
+    """
+    Preprocess the input data:
+    - Remove outliers in 'Quantity' using the IQR method.
+    - Normalize the 'Quantity' column using min-max scaling.
     
-    # Use index as the feature.
-    x = pd.Series(range(len(df)))
-    y = df['Quantity']
+    Returns:
+        processed_data: DataFrame with an extra column 'Normalized'.
+        scale_params: Tuple (min_value, max_value) of the filtered data.
+    """
+    if not isinstance(data, pd.DataFrame):
+        data = pd.DataFrame(data)
     
-    if len(df) < 5:
-        print("Not enough data for dismissed model.")
-        return None
-
-    # Split 80/20.
-    train_size = int(0.8 * len(df))
-    x_train = x.iloc[:train_size]
-    x_test = x.iloc[train_size:]
-    y_train = y.iloc[:train_size]
-    y_test = y.iloc[train_size:]
+    Q1 = data['Quantity'].quantile(0.25)
+    Q3 = data['Quantity'].quantile(0.75)
+    IQR = Q3 - Q1
+    data_filtered = data[(data['Quantity'] >= Q1 - 1.5 * IQR) &
+                         (data['Quantity'] <= Q3 + 1.5 * IQR)]
     
-    # Dummy model that always predicts 0.
-    model = DummyRegressor(strategy="constant", constant=0)
-    model.fit(x_train.values.reshape(-1, 1), y_train)
-    y_pred = model.predict(x_test.values.reshape(-1, 1))
+    if data_filtered.empty:
+        return data.copy(), (None, None)
     
-    # Custom loss calculation:
-    y_true = y_test.values
-    # If y_true is 0 then denominator becomes y_true + 1 (i.e. 1); otherwise y_true.
-    denom = np.where(y_true != 0, y_true, y_true + 1)
-    loss = np.mean((y_true - y_pred)**2 / denom)
+    data_filtered = data_filtered.copy()
+    min_val = data_filtered['Quantity'].min()
+    max_val = data_filtered['Quantity'].max()
+    if max_val == min_val:
+        data_filtered.loc[:, 'Normalized'] = data_filtered['Quantity']
+        scale_params = (None, None)
+    else:
+        data_filtered.loc[:, 'Normalized'] = (data_filtered['Quantity'] - min_val) / (max_val - min_val)
+        scale_params = (min_val, max_val)
     
-    return loss
+    return data_filtered, scale_params
 
 def predict_next_year(data):
-    # Compute prediction without splitting dataset or loss error.
-    # Example: if "Quantity" exists, use its last value increased by 10%.
-    if data.empty or 'Quantity' not in data.columns:
+    """
+    Predict the next year's value for the dismissed model.
+    For example, take the last normalized value, apply a 15% increase,
+    and convert back to the original scale.
+    """
+    processed_data, scale_params = preprocess_data(data)
+    if processed_data.empty:
         return 0
-    last_val = data['Quantity'].iloc[-1]
-    return last_val * 1.1
+    if len(processed_data) < 2:
+        return processed_data['Quantity'].iloc[-1]
+    
+    # For dismissed model, increase the last normalized observation by 15%
+    series = processed_data['Normalized'].values
+    pred_normalized = series[-1] * 1.15
+    
+    min_val, max_val = scale_params
+    if min_val is not None and max_val is not None:
+        prediction = pred_normalized * (max_val - min_val) + min_val
+    else:
+        prediction = pred_normalized
+    return prediction
+
+def run_model(data):
+    """
+    Runs the dismissed model on preprocessed data and outputs a dummy loss.
+    """
+    if not isinstance(data, pd.DataFrame):
+        data = pd.DataFrame(data)
+    
+    prediction = predict_next_year(data)
+    processed_data, _ = preprocess_data(data)
+    if len(processed_data) < 2:
+        loss = 0
+    else:
+        series = processed_data['Normalized'].values
+        loss = np.abs(series[-1] - series[-2])
+    print(f"Dismissed model loss for dismissed category: {loss}")
+    return prediction
 
 if __name__ == "__main__":
-    # For standalone testing: load history from 01_input_history.csv
     input_history = pd.read_csv('01_input_history.csv')
     prediction = predict_next_year(input_history)
-    # Append the prediction to predictions.csv with default Country
     with open('predictions.csv', 'a') as f:
-        f.write("Default,{}\n".format(prediction))
+        f.write("Default,Default,Default,{}\n".format(prediction))
 
