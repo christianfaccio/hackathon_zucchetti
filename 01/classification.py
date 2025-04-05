@@ -121,5 +121,24 @@ def write_categories_to_csv(categories, output_file):
             for product, category in products.items():
                 writer.writerow([country, product, category])
 
-file_path = "../chiavetta/data/01_input_history.csv"  # sostituisci con il percorso del tuo file CSV
-write_categories_to_csv(categorize_products(leggi_csv_4d(file_path)), "categories.csv")
+def classify(group_data):
+    """
+    Dummy classification function.
+    Uses the mean of 'Quantity' from group_data to select a model.
+    Returns one of 'dismissed', 'intervals', or 'regular'.
+    """
+    if group_data.empty:
+        return 'regular'
+    mean_quantity = group_data['Quantity'].mean()
+    if mean_quantity > 100:
+        return 'dismissed'
+    elif mean_quantity > 50:
+        return 'intervals'
+    else:
+        return 'regular'
+
+if __name__ == "__main__":
+    # Existing code that writes categories.csv should run only when executed directly.
+    file_path = "../chiavetta/data/01_input_history.csv"  # adjust if necessary
+    categories = categorize_products(leggi_csv_4d(file_path))
+    write_categories_to_csv(categories, "categories.csv")

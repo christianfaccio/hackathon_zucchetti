@@ -1,7 +1,7 @@
 import csv
 import statistics
 import pandas as pd
-from classification import leggi_csv_4d, categorize_products
+from classification import leggi_csv_4d, categorize_products, classify  # classification algorithm; see [01/classification.py](01/classification.py)
 import dismissed  # our custom model using custom loss
 import intervals  # our custom model using custom loss
 import regular    # our custom model using custom loss
@@ -79,6 +79,42 @@ def main():
         print(f"Overall Average custom loss: {avg_overall}")
     else:
         print("No custom loss results available.")
+
+    # Load your full dataset; adjust filename as needed (e.g., train.csv)
+    data = pd.read_csv('train.csv')
+    
+    # Group dataset based on Country and Product columns
+    groups = data.groupby(['Country', 'Product'])
+    results = []
+    
+    # Dummy list of months forecasting next year.
+    forecast_months = ["Jan2024", "Feb2024", "Mar2024", "Apr2024", "May2024", "Jun2024", 
+                       "Jul2024", "Aug2024", "Sep2024", "Oct2024", "Nov2024", "Dec2024"]
+    
+    for (country, product), group_data in groups:
+        # Determine which model to use for this group via classify function.
+        model_choice = classify(group_data)
+        if model_choice == 'dismissed':
+            prediction = dismissed.predict_next_year(group_data)
+        elif model_choice == 'intervals':
+            prediction = intervals.predict_next_year(group_data)
+        elif model_choice == 'regular':
+            prediction = regular.predict_next_year(group_data)
+        else:
+            prediction = 0
+        
+        # One row per forecasted month for next year.
+        for m in forecast_months:
+            results.append({
+                'Country': country,
+                'Product': product,
+                'Month': m,
+                'Quantity': prediction
+            })
+    
+    # Write predictions.csv with Country, Product, Month and Quantity columns.
+    predictions_df = pd.DataFrame(results)
+    predictions_df.to_csv('predictions.csv', index=False)
 
 if __name__ == "__main__":
     main()

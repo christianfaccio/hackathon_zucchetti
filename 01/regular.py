@@ -37,3 +37,15 @@ def run_model(data):
     
     return loss
 
+def predict_next_year(data):
+    # Example prediction: return the mean quantity rounded.
+    if data.empty or 'Quantity' not in data.columns:
+        return 0
+    return round(data['Quantity'].mean(), 2)
+
+if __name__ == "__main__":
+    input_history = pd.read_csv('01_input_history.csv')
+    prediction = predict_next_year(input_history)
+    with open('predictions.csv', 'a') as f:
+        f.write("Default,{}\n".format(prediction))
+

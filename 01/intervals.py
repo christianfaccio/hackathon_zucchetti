@@ -34,3 +34,16 @@ def run_model(data):
     loss = np.mean((y_true - y_pred)**2 / denom)
     
     return loss
+
+def predict_next_year(data):
+    # Example prediction method: add fixed increment (e.g. +50 units) to last observation.
+    if data.empty or 'Quantity' not in data.columns:
+        return 0
+    last_val = data['Quantity'].iloc[-1]
+    return last_val + 50
+
+if __name__ == "__main__":
+    input_history = pd.read_csv('01_input_history.csv')
+    prediction = predict_next_year(input_history)
+    with open('predictions.csv', 'a') as f:
+        f.write("Default,{}\n".format(prediction))

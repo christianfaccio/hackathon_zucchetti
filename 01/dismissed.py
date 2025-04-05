@@ -38,3 +38,19 @@ def run_model(data):
     
     return loss
 
+def predict_next_year(data):
+    # Compute prediction without splitting dataset or loss error.
+    # Example: if "Quantity" exists, use its last value increased by 10%.
+    if data.empty or 'Quantity' not in data.columns:
+        return 0
+    last_val = data['Quantity'].iloc[-1]
+    return last_val * 1.1
+
+if __name__ == "__main__":
+    # For standalone testing: load history from 01_input_history.csv
+    input_history = pd.read_csv('01_input_history.csv')
+    prediction = predict_next_year(input_history)
+    # Append the prediction to predictions.csv with default Country
+    with open('predictions.csv', 'a') as f:
+        f.write("Default,{}\n".format(prediction))
+
