@@ -45,14 +45,24 @@ def preprocess_data(data):
 def predict_next_year(data):
     """
     Predict the next year's value using an advanced SARIMAX model on preprocessed data.
+    Only positive Quantity values are used in the prediction phase. 
     (Falls back to the last observed Quantity if data is insufficient or model fitting fails.)
     """
     processed_data, scale_params = preprocess_data(data)
-    if processed_data.empty or len(processed_data) < 5:
-        return processed_data['Quantity'].iloc[-1]
-    series = processed_data['Normalized'].values
+    
+    # Filter rows with Quantity > 0 for prediction
+    filtered_data = processed_data[processed_data['Quantity'] > 0]
+    if filtered_data.empty or len(filtered_data) < 5:
+        # Fallback: use full processed data if filtering removes too many rows.
+        filtered_data = processed_data
+        if filtered_data.empty:
+            return 0
+    
+    if 'Month' in filtered_data.columns:
+        filtered_data = filtered_data.sort_values('Month')
+    
+    series = filtered_data['Normalized'].values
     try:
-        # Fit a SARIMAX(1,0,1) model
         model = SARIMAX(series, order=(1, 0, 1),
                         enforce_stationarity=False,
                         enforce_invertibility=False)
@@ -60,6 +70,7 @@ def predict_next_year(data):
         forecast_norm = fit_model.forecast(steps=1)[0]
     except Exception:
         forecast_norm = series[-1]
+    
     min_val, max_val = scale_params
     if (min_val is not None) and (max_val is not None):
         prediction = forecast_norm * (max_val - min_val) + min_val

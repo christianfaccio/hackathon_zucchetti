@@ -1,0 +1,89 @@
+\documentclass{beamer}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{listings}
+
+\usetheme{Warsaw}
+\usecolortheme{dolphin}
+
+% Define colors
+\definecolor{darkgreen}{RGB}{0,128,0}
+\definecolor{darkred}{RGB}{128,0,0}
+
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=0.5\paperwidth,ht=2.5ex,dp=1ex,left]{author in head/foot}%
+      \hspace{0.6cm}Battiston, Faccio, Magnabosco, Viler
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=0.5\paperwidth,ht=2.5ex,dp=1ex,right]{date in head/foot}%
+      \insertshorttitle\hspace*{2em}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}%
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
+
+\title{\textbf{Hackathon Zucchetti}}
+\author{Nicola Battiston, Christian Faccio, \\ Manuel Magnabosco, Christian Viler}
+\date{April 6, 2025}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Approccio utilizzato}
+    Some initial content.
+    
+    \pause  % creates the next overlay
+    
+    \uncover<2->{%
+        \begin{block}{Outcoming Window}
+            This block appears from the second overlay onward.
+            You can put any content you like here.
+        \end{block}
+    }
+\end{frame}
+
+\begin{frame}{Ragionamento seguito}
+    \textbf{1 - Previsione delle domande di mercato}
+    \vspace{0.2cm}
+    \begin{enumerate}
+        \item Classificazione dei gruppi country-product in \textbf{dismissed, intervals, regular}
+        \vspace{0.2cm}
+        \item Pulizia dei dati \textbf{(outliers, normalizzazione)}
+        \vspace{0.2cm}
+        \item Applicazione del relativo modello di previsione:
+        \begin{itemize}
+            \item Dismissed $\to$ Dummy Regressor (predice sempre 0)
+            \item Intervals $\to$ SARIMAX model 
+            \item Regular $\to$ SARIMAX model
+        \end{itemize}
+        \vspace{0.2cm}
+        \item Previsione della domanda per l'anno 2024
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Ragionamento seguito}
+    \textbf{2 - Bilanciamento produzione tra stabilimenti}
+    \begin{enumerate}
+        \item Utilizzo della libreria \textbf{PuLP} per la programmazione lineare
+        \item Sistemato i dati in dei dizionari per modificare i parametri del problema
+        \item Inserita la funzione obiettivo e i vincoli
+        \item Risoluzione del problema
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Ragionamento seguito}
+    \textbf{3 - Ottimizzazione Costi di Produzione e Trasferimento}
+    \begin{enumerate}
+        \item Lettura dei dati di input
+        \item Definizione dei costi di produzione e trasferimento
+        \item Configurazione dei vincoli di capacità e domanda
+        \item Risoluzione del modello utilizzando la libreria \textbf{PuLP} e analisi dei risultati
+    \end{enumerate}
+\end{frame}
+
+\end{document}

@@ -1,2 +1,9 @@
 venv
 01/__pycache__
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.gz
+*.toc
