@@ -119,8 +119,26 @@ def create_predictions_file(data_file, category_map, output_file, forecast_year=
         print(f"Predictions saved to {output_file}")
     except Exception as e:
         print(f"Error writing predictions to {output_file}: {e}")
+"""
+def main():
+    # Use the training data split
+    raw_file = "train.csv" # Changed input file
 
+    category_csv = "categories.csv"  # Assuming it's in the 'code' folder
 
+    # Load our mapping of (Country, Product) -> Category.
+    category_map = load_category_map(category_csv)
+
+    # Define a new output file name for these predictions
+    output_file = 'output/predictions_for_2023.csv' # Changed output file
+
+    # Specify the target forecast year (the year in test.csv)
+    target_year = 2023 # Changed target year
+
+    # Pass the correct data file and the category map
+    if category_map: # Proceed only if category map loaded successfully
+         create_predictions_file(raw_file, category_map, output_file, forecast_year=target_year)
+"""
 def main():
     # Use the correct path for the input data
     # Make sure this path is correct relative to where you run the script
