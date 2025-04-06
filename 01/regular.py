@@ -115,17 +115,17 @@ def run_model(data):
         else:
             loss = np.mean(np.abs(series[1:] - series[:-1]))
     print(f"SARIMAX model loss: {loss}")
-    return prediction
+    return loss
 
 if __name__ == "__main__":
     # For standalone testing, load historical data from 01_input_history.csv.
-    input_history = pd.read_csv('01_input_history.csv')
+    input_history = pd.read_csv('input/01_input_history.csv')
     
     # Get forecast using SARIMAX
     sarimax_prediction = predict_next_year(input_history)
     print("SARIMAX forecast:", sarimax_prediction)
     
     # Optionally write the prediction to file
-    with open('predictions.csv', 'a') as f:
+    with open('output/01_output_predictions_2179.csv', 'a') as f:
         f.write("Default,Default,Default,{}\n".format(sarimax_prediction))
 

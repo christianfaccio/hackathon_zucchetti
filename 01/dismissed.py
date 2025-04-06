@@ -73,11 +73,11 @@ def run_model(data):
         series = processed_data['Normalized'].values
         loss = np.abs(series[-1] - series[-2])
     print(f"Dismissed model loss for dismissed category: {loss}")
-    return prediction
+    return loss  # Changed from 'return prediction' to 'return loss'
 
 if __name__ == "__main__":
-    input_history = pd.read_csv('01_input_history.csv')
+    input_history = pd.read_csv('input/01_input_history.csv')
     prediction = predict_next_year(input_history)
-    with open('predictions.csv', 'a') as f:
+    with open('output/01_output_predictions_2179.csv', 'a') as f:
         f.write("Default,Default,Default,{}\n".format(prediction))
 

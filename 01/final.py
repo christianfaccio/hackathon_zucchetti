@@ -113,8 +113,8 @@ def main():
             })
     
     # Write predictions.csv with Country, Product, Month and Quantity columns.
-    #predictions_df = pd.DataFrame(results)
-    #predictions_df.to_csv('01_output_predictions_2179.csv', index=False)
+    predictions_df = pd.DataFrame(results)
+    predictions_df.to_csv('output/01_output_predictions_2179.csv', index=False)
 
 if __name__ == "__main__":
     main()

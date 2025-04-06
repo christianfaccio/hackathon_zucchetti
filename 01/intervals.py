@@ -92,7 +92,7 @@ def predict_next_year(data):
     return prediction
 
 if __name__ == "__main__":
-    input_history = pd.read_csv('01_input_history.csv')
+    input_history = pd.read_csv('input/01_input_history.csv')
     prediction = predict_next_year(input_history)
-    with open('predictions.csv', 'a') as f:
+    with open('output/01_output_predictions_2179.csv', 'a') as f:
         f.write("Default,Default,Default,{}\n".format(prediction))
