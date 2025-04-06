@@ -1,10 +1,11 @@
 import csv
 import statistics
 import pandas as pd
-from classification import leggi_csv_4d, categorize_products, classify  # classification algorithm; see [01/classification.py](01/classification.py)
-import dismissed  # our custom model using custom loss
-import intervals  # our custom model using custom loss
-import regular    # our custom model using custom loss
+# Removed classification import as we use the category_map
+# from classification import leggi_csv_4d, categorize_products, classify
+import dismissed  # our custom model (always 0)
+import intervals   # our custom model (linear regression for target month)
+import regular    # our custom model (SARIMAX forecasting)
 
 def load_category_map(category_csv):
     """
@@ -13,108 +14,132 @@ def load_category_map(category_csv):
     Returns: dict with keys (Country, Product) and values Category.
     """
     category_map = {}
-    df = pd.read_csv(category_csv)
-    for _, row in df.iterrows():
-        key = (row['Country'], row['Product'])
-        category_map[key] = row['Category']
+    try:
+        df = pd.read_csv(category_csv)
+        for _, row in df.iterrows():
+            key = (row['Country'], row['Product'])
+            category_map[key] = row['Category']
+    except FileNotFoundError:
+        print(f"Error: Category file not found at {category_csv}")
+        return None
+    except KeyError as e:
+        print(f"Error: Missing expected column in {category_csv}: {e}")
+        return None
     return category_map
 
-def run_models_on_grouped_data(raw_file, category_map):
+def create_predictions_file(data_file, category_map, output_file, forecast_year=2024):
     """
-    Reads the raw CSV of monthly data, groups it by Country and Product,
-    assigns a category from the category_map, and runs the appropriate model.
-    Returns a dict mapping category -> list of loss values.
+    Reads the data file, groups by Country and Product, uses the category_map
+    to classify each group, then calls the appropriate model's predict function
+    to obtain 12-month predictions for the specified forecast_year.
+    Predicted hypotheses for each model are written to the output file.
     """
-    loss_by_category = {"dismissed": [], "intervals": [], "regular": []}
-    df = pd.read_csv(raw_file)
-    # Group by country and product.
-    groups = df.groupby(['Country', 'Product'])
-    for (country, product), group_df in groups:
-        key = (country, product)
-        if key not in category_map:
-            print(f"No category found for {key}. Skipping.")
-            continue
-        category = category_map[key]
-        # Convert group data to list-of-dicts (as expected by the model functions)
-        data_group = group_df.to_dict(orient='records')
-        loss = None
-        if category == "dismissed":
-            loss = dismissed.run_model(data_group)
-        elif category == "intervals":
-            loss = intervals.run_model(data_group)
-        elif category == "regular":
-            loss = regular.run_model(data_group)
-        else:
-            print(f"Unknown category {category} for {key}, skipping.")
-            continue
+    if category_map is None:
+        print("Error: Category map is not loaded. Cannot proceed.")
+        return
 
-        # Print the message including the computed loss.
-        if loss is not None:
-            print(f"Running model for {country}, {product} (Category: {category}) -> Loss: {loss}")
-            loss_by_category[category].append(loss)
-        else:
-            print(f"Model for {country}, {product} (Category: {category}) returned no result.")
-    return loss_by_category
+    try:
+        data = pd.read_csv(data_file)
+        # Ensure 'Month' column exists
+        if 'Month' not in data.columns:
+            print(f"Error: 'Month' column not found in {data_file}")
+            return
+        # Convert Month to datetime objects to reliably find the max date
+        # Handle potential errors during conversion
+        data['Date'] = pd.to_datetime(data['Month'], format='%b%Y', errors='coerce')
+        data.dropna(subset=['Date'], inplace=True) # Drop rows where conversion failed
+        
+        # Check if data ends in December 2023 as expected by user
+        last_date = data['Date'].max()
+        if last_date.year != 2023 or last_date.month != 12:
+             print(f"Warning: Last date in data is {last_date.strftime('%b%Y')}, not Dec 2023 as expected.")
 
-def main():
-    raw_file = "../chiavetta/data/01_input_history.csv"
-    category_csv = "categories.csv"  # output produced by classification.py
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {data_file}")
+        return
+    except KeyError as e:
+         print(f"Error: Missing expected column in {data_file}: {e}")
+         return
+    except Exception as e:
+        print(f"An unexpected error occurred while reading {data_file}: {e}")
+        return
 
-    # Load our mapping of (Country, Product) -> Category.
-    category_map = load_category_map(category_csv)
-    # Run the appropriate model for each group.
-    loss_by_category = run_models_on_grouped_data(raw_file, category_map)
-    
-    overall_loss = []
-    for category, loss_list in loss_by_category.items():
-        if loss_list:
-            avg_cat = statistics.mean([float(x) for x in loss_list])
-            overall_loss.extend(loss_list)
-            print(f"Average custom loss for {category} model: {avg_cat}")
-        else:
-            print(f"No loss results for {category} model.")
-    
-    if overall_loss:
-        avg_overall = statistics.mean([float(x) for x in overall_loss])
-        print(f"Overall Average custom loss: {avg_overall}")
-    else:
-        print("No custom loss results available.")
 
-    # Load your full dataset; adjust filename as needed (e.g., train.csv)
-    data = pd.read_csv('train.csv')
-    
-    # Group dataset based on Country and Product columns
     groups = data.groupby(['Country', 'Product'])
     results = []
-    
-    # Dummy list of months forecasting next year.
-    forecast_months = ["Jan2024", "Feb2024", "Mar2024", "Apr2024", "May2024", "Jun2024", 
-                       "Jul2024", "Aug2024", "Sep2024", "Oct2024", "Nov2024", "Dec2024"]
-    
+
+    # Generate forecast month labels for the target year
+    forecast_months = [f"{pd.Timestamp(f'{forecast_year}-{m}-01').strftime('%b')}{forecast_year}" for m in range(1, 13)]
+
     for (country, product), group_data in groups:
-        # Determine which model to use for this group via classify function.
-        model_choice = classify(group_data)
-        if model_choice == 'dismissed':
-            prediction = dismissed.predict_next_year(group_data)
-        elif model_choice == 'intervals':
-            prediction = intervals.predict_next_year(group_data)
-        elif model_choice == 'regular':
-            prediction = regular.predict_next_year(group_data)
-        else:
-            prediction = 0
-        
-        # One row per forecasted month for next year.
+        # Use the pre-loaded category map for classification
+        model_choice = category_map.get((country, product), 'unknown') # Default if group not in map
+
+        pred_dict = {}
+        try:
+            if model_choice == 'dismissed':
+                # dismissed.predict_next_year returns 0; create dict for all months.
+                 # Pass forecast_year to ensure consistency if needed (though dismissed ignores it)
+                pred_val = dismissed.predict_next_year(group_data)
+                pred_dict = {m: pred_val for m in forecast_months}
+            elif model_choice == 'intervals':
+                # Pass forecast_year to the intervals model
+                pred_dict = intervals.predict_next_year(group_data, forecast_year)
+            elif model_choice == 'regular':
+                 # Pass forecast_year to the regular model
+                pred_dict = regular.predict_next_year(group_data, forecast_year)
+            else:
+                # Fallback for unknown categories or groups not in map: predict 0.
+                print(f"Warning: Unknown category '{model_choice}' for ({country}, {product}). Predicting 0.")
+                pred_dict = {m: 0 for m in forecast_months}
+
+            # Ensure the prediction is a dictionary covering all forecast months
+            final_pred_dict = {}
+            for m in forecast_months:
+                 # Use .get() with default 0 for safety, ensure integer output
+                final_pred_dict[m] = int(round(pred_dict.get(m, 0)))
+
+        except Exception as e:
+            print(f"Error predicting for ({country}, {product}) using model {model_choice}: {e}")
+            # Fallback on error: predict 0 for all months
+            final_pred_dict = {m: 0 for m in forecast_months}
+
+
         for m in forecast_months:
             results.append({
                 'Country': country,
                 'Product': product,
                 'Month': m,
-                'Quantity': prediction
+                'Quantity': final_pred_dict.get(m, 0) # Use get for safety
             })
-    
-    # Write predictions.csv with Country, Product, Month and Quantity columns.
+
     predictions_df = pd.DataFrame(results)
-    predictions_df.to_csv('output/01_output_predictions_2179.csv', index=False)
+    try:
+        predictions_df.to_csv(output_file, index=False)
+        print(f"Predictions saved to {output_file}")
+    except Exception as e:
+        print(f"Error writing predictions to {output_file}: {e}")
+
+
+def main():
+    # Use the correct path for the input data
+    # Make sure this path is correct relative to where you run the script
+    raw_file = "input/01_input_history.csv" # Assuming it's in the 'code' folder relative to execution
+    # raw_file = "../chiavetta/data/01_input_history.csv" # Original path from your code
+
+    category_csv = "categories.csv"  # Assuming it's in the 'code' folder
+
+    # Load our mapping of (Country, Product) -> Category.
+    category_map = load_category_map(category_csv)
+
+    # Define output file path
+    output_file = 'output/01_output_predictions_2179.csv' # Corrected output name
+
+    # Specify the target forecast year
+    target_year = 2024
+
+    # Pass the correct data file and the category map
+    create_predictions_file(raw_file, category_map, output_file, forecast_year=target_year)
 
 if __name__ == "__main__":
     main()
