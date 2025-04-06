@@ -91,6 +91,6 @@ output_dir = "output"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-production_df.to_csv(os.path.join(output_dir, "optimal_production.csv"), index=False)
-shipments_df.to_csv(os.path.join(output_dir, "optimal_shipments.csv"), index=False)
+production_df.to_csv(os.path.join(output_dir, "optimal_production.csv"), index=False, float_format="%.15f")
+shipments_df.to_csv(os.path.join(output_dir, "optimal_shipments.csv"), index=False, float_format="%.15f")
 print("Files written: {}/optimal_production.csv and {}/optimal_shipments.csv".format(output_dir, output_dir))
